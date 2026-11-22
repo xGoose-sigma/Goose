@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Super Goose Adventure Online</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+  body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  
+  #loginScreen {
+    position: fixed; inset: 0; background: linear-gradient(135deg, #2b5876, #4e4376);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 100; color: white; padding: 20px; text-align: center;
+  }
+  #loginScreen h1 { font-size: 28px; margin: 0 0 10px; text-shadow: 0 3px 6px rgba(0,0,0,0.4); }
+  #loginScreen input {
+    padding: 12px 16px; font-size: 18px; border-radius: 12px; border: none;
+    width: 240px; text-align: center; margin-bottom: 14px; outline: none;
+  }
+  #playBtn {
+    padding: 14px 32px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px;
+    background: #ffcc00; color: #222; cursor: pointer; box-shadow: 0 4px 0 #cc9900;
+  }
+  #playBtn:active { transform: translateY(2px); box-shadow: 0 2px 0 #cc9900; }
+
+  #hud {
+    position: fixed; top: 10px; left: 10px; right: 10px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 10;
+  }
+  .stats {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 12px;
+    color: white; font-weight: bold; font-size: 14px; backdrop-filter: blur(4px);
+  }
+  .top-btns { display: flex; gap: 6px; pointer-events: auto; }
+  .hud-btn {
+    background: rgba(0,0,0,0.65); color: white; border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: bold; cursor: pointer;
+  }
+
+  #bossBar {
+    position: fixed; top: 58px; left: 50%; transform: translateX(-50%);
+    width: 240px; background: rgba(0,0,0,0.7); padding: 6px; border-radius: 10px;
+    color: white; text-align: center; font-size: 12px; font-weight: bold;
+    display: none; z-index: 10;
+  }
+  #bossFill { height: 10px; background: #ff3b30; border-radius: 6px; width: 100%; margin-top: 4px; transition: width 0.2s; }
+
+  #chatBox {
+    position: fixed; top: 56px; right: 10px; width: 250px; max-height: 210px;
+    background: rgba(0,0,0,0.78); border-radius: 12px; padding: 8px;
+    display: none; flex-direction: column; z-index: 30; color: white;
+    border: 1px solid rgba(255,255,255,0.25); pointer-events: auto;
+  }
+  #chatHeader { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; margin-bottom: 6px; }
+  #closeChat { background: #ff3b30; color: white; border: none; border-radius: 6px; width: 24px; height: 24px; font-weight: bold; cursor: pointer; }
+  #chatMsgs { flex: 1; overflow-y: auto; font-size: 12px; max-height: 120px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .msg-item { background: rgba(255,255,255,0.1); padding: 4px 6px; border-radius: 6px; word-break: break-word; }
+  #chatForm { display: flex; gap: 4px; }
+  #chatInput { flex: 1; padding: 6px; border-radius: 6px; border: none; font-size: 12px; outline: none; user-select: text; -webkit-user-select: text; }
+  #sendMsg { background: #34c759; color: white; border: none; border-radius: 6px; padding: 0 10px; font-weight: bold; cursor: pointer; }
+
+  #shopModal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+  }
+  .shop-card {
+    background: #1e2430; color: white; border-radius: 18px; padding: 18px;
+    width: 100%; max-width: 340px; border: 2px solid #ffcc00;
+  }
+  .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .shop-item {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(255,255,255,0.08); padding: 10px; border-radius: 10px; margin-bottom: 8px;
+  }
+  .buy-btn {
+    background: #ffcc00; color: #111; border: none; padding: 6px 12px;
+    border-radius: 8px; font-weight: bold; cursor: pointer;
+  }
+  .buy-btn.owned { background: #34c759; color: white; }
+
+  #joyZone {
+    position: fixed; bottom: 20px; left: 20px; width: 130px; height: 130px;
+    border-radius: 50%; background: rgba(255,255,255,0.18);
+    border: 2px solid rgba(255,255,255,0.4); z-index: 20;
+  }
+  #joyKnob {
+    position: absolute; top: 50%; left: 50%; width: 52px; height: 52px;
+    margin: -26px 0 0 -26px; border-radius: 50%;
+    background: rgba(255,255,255,0.85); box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    pointer-events: none;
+  }
+
+  #actionBtns {
+    position: fixed; bottom: 20px; right: 20px;
+    display: grid; grid-template-columns: repeat(2, 64px); gap: 10px; z-index: 20;
+  }
+  .act-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5);
+    color: white; font-weight: bold; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+  }
+  .act-btn:active { transform: scale(0.92); }
+  #btnJump { background: rgba(52, 199, 89, 0.8); }
+  #btnDash { background: rgba(0, 122, 255, 0.8); }
+  #btnSlam { background: rgba(255, 59, 48, 0.8); }
+  #btnHonk { background: rgba(255, 149, 0, 0.85); }
+
+  #toast {
+    position: fixed; top: 105px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: #ffcc00; padding: 8px 16px;
+    border-radius: 20px; font-weight: bold; font-size: 14px;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 40;
+  }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h1>🦢 Super Goose Online</h1>
+  <p style="margin:0 0 16px;opacity:0.9">Единый мир, друзья, босс и приключения!</p>
+  <input id="nickInput" type="text" maxlength="14" placeholder="Твой никнейм" value="Гусь">
+  <button id="playBtn">ИГРАТЬ ОНЛАЙН</button>
+</div>
+
+<div id="hud">
+  <div class="stats">
+    <span id="hpTxt">❤️❤️❤️</span>
+    <span id="coinTxt">🪙 0</span>
+    <span id="keyTxt">🔑 0</span>
+    <span id="cageTxt">🐣 0/4</span>
+    <span id="onlineTxt">🌐 1</span>
+    <span id="timeTxt">☀️ День</span>
+  </div>
+  <div class="top-btns">
+    <button class="hud-btn" id="openShop">🎩 Магазин</button>
+    <button class="hud-btn" id="toggleChat">💬 Чат</button>
+  </div>
+</div>
+
+<div id="bossBar">👑 КОРОЛЬ ПЧЕЛ <div id="bossFill"></div></div>
+<div id="toast"></div>
+
+<div id="chatBox">
+  <div id="chatHeader">
+    <span>💬 Общий чат</span>
+    <button id="closeChat">✕</button>
+  </div>
+  <div id="chatMsgs"></div>
+  <form id="chatForm">
+    <input id="chatInput" type="text" maxlength="80" placeholder="Сообщение...">
+    <button id="sendMsg" type="submit">➤</button>
+  </form>
+</div>
+
+<div id="shopModal">
+  <div class="shop-card">
+    <div class="shop-header">
+      <h3 style="margin:0">🎩 Магазин Гуся</h3>
+      <button id="closeShop" style="background:#ff3b30;color:#fff;border:none;border-radius:8px;padding:4px 10px;font-weight:bold;">✕</button>
+    </div>
+    <div class="shop-item"><div><b>🧢 Синяя кепка</b><br><small>Стильный головной убор</small></div><button class="buy-btn" data-item="cap" data-cost="5">5 🪙</button></div>
+    <div class="shop-item"><div><b>👑 Корона</b><br><small>Для короля гусей</small></div><button class="buy-btn" data-item="crown" data-cost="12">12 🪙</button></div>
+    <div class="shop-item"><div><b>🦘 Супер-прыжок</b><br><small>Прыгай выше облаков</small></div><button class="buy-btn" data-item="jump" data-cost="8">8 🪙</button></div>
+    <div class="shop-item"><div><b>⚡ Турбо-скорость</b><br><small>Быстрый бег</small></div><button class="buy-btn" data-item="speed" data-cost="8">8 🪙</button></div>
+  </div>
+</div>
+
+<div id="joyZone"><div id="joyKnob"></div></div>
+<div id="actionBtns">
+  <button class="act-btn" id="btnDash">РЫВОК</button>
+  <button class="act-btn" id="btnJump">ПРЫЖОК</button>
+  <button class="act-btn" id="btnHonk">ГА-ГА!</button>
+  <button class="act-btn" id="btnSlam">УДАР</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 45, 165);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 250);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x447733, 0.85);
+scene.add(hemiLight);
+const dirLight = new THREE.DirectionalLight(0xfff5e0, 0.9);
+dirLight.position.set(40, 70, 30);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+const starsGeo = new THREE.BufferGeometry();
+const starPos = [];
+for (let i = 0; i < 400; i++) {
+  starPos.push((Math.random() - 0.5) * 320, 45 + Math.random() * 90, (Math.random() - 0.5) * 320);
+}
+starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.9, transparent: true, opacity: 0 });
+const stars = new THREE.Points(starsGeo, starsMat);
+scene.add(stars);
+
+const ground = new THREE.Mesh(
+  new THREE.BoxGeometry(190, 4, 190),
+  new THREE.MeshLambertMaterial({ color: 0x4caf50 })
+);
+ground.position.y = -2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const river = new THREE.Mesh(
+  new THREE.BoxGeometry(190, 0.2, 14),
+  new THREE.MeshLambertMaterial({ color: 0x29b6f6 })
+);
+river.position.set(0, 0.02, -18);
+scene.add(river);
+
+const colliders = [];
+function addBox(x, y, z, w, h, d, color) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  scene.add(m);
+  colliders.push({ minX: x - w/2, maxX: x + w/2, minY: y - h/2, maxY: y + h/2, minZ: z - d/2, maxZ: z + d/2 });
+  return m;
+}
+
+addBox(-25, 0.4, -18, 8, 0.8, 16, 0x8d6e63);
+addBox(25, 0.4, -18, 8, 0.8, 16, 0x8d6e63);
+addBox(0, 0.4, -55, 10, 0.8, 16, 0x8d6e63);
+
+addBox(-32, 1.5, 22, 10, 3, 10, 0x7cb342);
+addBox(-32, 4.0, 12, 8, 2, 8, 0x689f38);
+addBox(-22, 6.5, 12, 8, 2, 8, 0x558b2f);
+addBox(35, 2.0, 25, 12, 4, 12, 0xd4a373);
+addBox(35, 5.0, 25, 8, 2, 8, 0xbc8a5f);
+addBox(35, 7.5, 25, 4, 3, 4, 0xa47148);
+addBox(-38, 2.5, -38, 12, 5, 12, 0x90a4ae);
+addBox(38, 3.0, -38, 12, 6, 12, 0xe0f7fa);
+addBox(0, 0.5, -75, 26, 1, 26, 0x546e7a);
+
+for (let i = -90; i <= 90; i += 18) {
+  const m1 = new THREE.Mesh(new THREE.ConeGeometry(14, 28, 6), new THREE.MeshLambertMaterial({ color: 0x607d8b }));
+  m1.position.set(i, 14, -92); scene.add(m1);
+  const m2 = m1.clone(); m2.position.set(i, 14, 92); scene.add(m2);
+  const m3 = m1.clone(); m3.position.set(-92, 14, i); scene.add(m3);
+  const m4 = m1.clone(); m4.position.set(92, 14, i); scene.add(m4);
+}
+
+const animatedEyes = [];
+function createGoose(isBaby = false) {
+  const g = new THREE.Group();
+  const s = isBaby ? 0.55 : 1;
+  const white = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const orange = new THREE.MeshLambertMaterial({ color: 0xff9800 });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.65 * s, 14, 12), white);
+  body.scale.set(0.85, 0.8, 1.25);
+  body.position.y = 0.75 * s;
+  body.castShadow = true;
+  g.add(body);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.24 * s, 0.85 * s, 10), white);
+  neck.position.set(0, 1.35 * s, 0.45 * s);
+  g.add(neck);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26 * s, 12, 12), white);
+  head.position.set(0, 1.78 * s, 0.5 * s);
+  g.add(head);
+
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.13 * s, 0.36 * s, 10), orange);
+  beak.rotation.x = Math.PI / 2;
+  beak.position.set(0, 1.74 * s, 0.78 * s);
+  g.add(beak);
+
+  [-1, 1].forEach(side => {
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.065 * s, 8, 8), white);
+    sclera.position.set(side * 0.14 * s, 1.84 * s, 0.66 * s);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.035 * s, 8, 8), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+    pupil.position.set(0, 0, 0.045 * s);
+    sclera.add(pupil);
+    g.add(sclera);
+    animatedEyes.push({ sclera, pupil, phase: Math.random() * 6 });
+  });
+
+  const wingGeo = new THREE.BoxGeometry(0.12 * s, 0.45 * s, 0.75 * s);
+  const wingL = new THREE.Mesh(wingGeo, white);
+  wingL.position.set(-0.56 * s, 0.85 * s, 0);
+  const wingR = new THREE.Mesh(wingGeo, white);
+  wingR.position.set(0.56 * s, 0.85 * s, 0);
+  g.add(wingL, wingR);
+
+  const footGeo = new THREE.BoxGeometry(0.22 * s, 0.08 * s, 0.32 * s);
+  const footL = new THREE.Mesh(footGeo, orange);
+  footL.position.set(-0.24 * s, 0.04 * s, 0.1 * s);
+  const footR = new THREE.Mesh(footGeo, orange);
+  footR.position.set(0.24 * s, 0.04 * s, 0.1 * s);
+  g.add(footL, footR);
+
+  const hatGroup = new THREE.Group();
+  hatGroup.position.set(0, 2.0 * s, 0.5 * s);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.24 * s, 0.25 * s, 0.16 * s, 12), new THREE.MeshLambertMaterial({ color: 0x1976d2 }));
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.32 * s, 0.04 * s, 0.25 * s), new THREE.MeshLambertMaterial({ color: 0x1565c0 }));
+  visor.position.set(0, -0.05 * s, 0.18 * s);
+  cap.add(visor);
+  cap.visible = false;
+
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * s, 0.18 * s, 0.2 * s, 6), new THREE.MeshLambertMaterial({ color: 0xffd700 }));
+  crown.visible = false;
+
+  hatGroup.add(cap, crown);
+  g.add(hatGroup);
+
+  g.userData = { wingL, wingR, footL, footR, cap, crown };
+  return g;
+}
+
+const playerMesh = createGoose(false);
+scene.add(playerMesh);
+
+const state = {
+  nick: 'Гусь',
+  hp: 3,
+  coins: 0,
+  keys: 0,
+  rescued: 0,
+  hat: 'none',
+  superJump: false,
+  turbo: false,
+  invuln: 0
+};
+
+const phys = {
+  pos: new THREE.Vector3(0, 0.1, 10),
+  vel: new THREE.Vector3(),
+  grounded: false,
+  jumps: 0,
+  slamming: false,
+  dashTimer: 0,
+  yaw: 0
+};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = 1;
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.style.opacity = 0, 2200);
+}
+
+function updateHUD() {
+  document.getElementById('hpTxt').textContent = '❤️'.repeat(Math.max(0, state.hp)) || '💀';
+  document.getElementById('coinTxt').textContent = '🪙 ' + state.coins;
+  document.getElementById('keyTxt').textContent = '🔑 ' + state.keys;
+  document.getElementById('cageTxt').textContent = `🐣 ${state.rescued}/4`;
+}
+
+const coins = [];
+function spawnCoin(x, y, z) {
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.35, 0.35, 0.1, 14),
+    new THREE.MeshLambertMaterial({ color: 0xffd700 })
+  );
+  m.rotation.x = Math.PI / 2;
+  m.position.set(x, y, z);
+  scene.add(m);
+  coins.push(m);
+}
+for (let i = 0; i < 24; i++) {
+  spawnCoin((Math.random() - 0.5) * 75, 0.8, (Math.random() - 0.5) * 75);
+}
+spawnCoin(-32, 3.8, 22);
+spawnCoin(-22, 8.3, 12);
+spawnCoin(35, 9.8, 25);
+
+const keyItems = [];
+[[-22, 8.5, 12], [35, 10, 25], [-38, 6, -38], [38, 7, -38]].forEach(p => {
+  const k = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.1, 8, 16), new THREE.MeshLambertMaterial({ color: 0xffea00 }));
+  k.position.set(p[0], p[1], p[2]);
+  scene.add(k);
+  keyItems.push(k);
+});
+
+const cages = [];
+[[-15, 0, 25], [18, 0, 20], [-20, 0, -35], [22, 0, -35]].forEach(p => {
+  const grp = new THREE.Group();
+  grp.position.set(p[0], 0, p[2]);
+  const baby = createGoose(true);
+  grp.add(baby);
+  const bars = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 1.8, 1.8),
+    new THREE.MeshBasicMaterial({ color: 0x333333, wireframe: true })
+  );
+  bars.position.y = 0.9;
+  grp.add(bars);
+  scene.add(grp);
+  cages.push({ grp, baby, bars, open: false });
+});
+
+const enemies = [];
+function createBee(isBoss = false) {
+  const g = new THREE.Group();
+  const s = isBoss ? 2.6 : 1;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.55 * s, 12, 12), new THREE.MeshLambertMaterial({ color: 0xffd600 }));
+  body.scale.set(0.9, 0.9, 1.3);
+  g.add(body);
+
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.52 * s, 0.52 * s, 0.25 * s, 12), new THREE.MeshLambertMaterial({ color: 0x111111 }));
+  stripe.rotation.x = Math.PI / 2;
+  g.add(stripe);
+
+  const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
+  const wL = new THREE.Mesh(new THREE.PlaneGeometry(0.7 * s, 0.4 * s), wMat);
+  wL.position.set(-0.55 * s, 0.35 * s, 0);
+  const wR = wL.clone();
+  wR.position.x = 0.55 * s;
+  g.add(wL, wR);
+
+  return { mesh: g, wL, wR, isBoss, hp: isBoss ? 5 : 1, maxHp: isBoss ? 5 : 1, home: new THREE.Vector3(), alive: true };
+}
+
+[[-12, 1.2, 5], [14, 1.2, 8], [-25, 1.2, -32], [25, 1.2, -32], [0, 1.2, -42]].forEach(p => {
+  const b = createBee(false);
+  b.mesh.position.set(p[0], p[1], p[2]);
+  b.home.set(p[0], p[1], p[2]);
+  scene.add(b.mesh);
+  enemies.push(b);
+});
+
+const boss = createBee(true);
+boss.mesh.position.set(0, 2.5, -75);
+boss.home.set(0, 2.5, -75);
+scene.add(boss.mesh);
+enemies.push(boss);
+
+let honkCtx = null;
+function playHonk() {
+  try {
+    if (!honkCtx) honkCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = honkCtx.createOscillator();
+    const gain = honkCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(340, honkCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(210, honkCtx.currentTime + 0.22);
+    gain.gain.setValueAtTime(0.25, honkCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, honkCtx.currentTime + 0.24);
+    osc.connect(gain); gain.connect(honkCtx.destination);
+    osc.start(); osc.stop(honkCtx.currentTime + 0.25);
+  } catch (e) {}
+}
+
+const joy = { active: false, id: null, dx: 0, dy: 0 };
+const joyZone = document.getElementById('joyZone');
+const joyKnob = document.getElementById('joyKnob');
+
+function updateJoy(clientX, clientY) {
+  const rect = joyZone.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const maxR = rect.width / 2 - 12;
+  let vx = clientX - cx;
+  let vy = clientY - cy;
+  const dist = Math.hypot(vx, vy);
+  if (dist > maxR) {
+    vx = (vx / dist) * maxR;
+    vy = (vy / dist) * maxR;
+  }
+  joyKnob.style.transform = `translate(${vx}px, ${vy}px)`;
+  joy.dx = vx / maxR;
+  joy.dy = vy / maxR;
+}
+
+function resetJoy() {
+  joy.active = false;
+  joy.id = null;
+  joy.dx = 0;
+  joy.dy = 0;
+  joyKnob.style.transform = 'translate(0px, 0px)';
+}
+
+joyZone.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (joy.active) return;
+  const t = e.changedTouches[0];
+  joy.active = true;
+  joy.id = t.identifier;
+  updateJoy(t.clientX, t.clientY);
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  if (!joy.active) return;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (t.identifier === joy.id) {
+      updateJoy(t.clientX, t.clientY);
+      break;
+    }
+  }
+}, { passive: true });
+
+window.addEventListener('touchend', e => {
+  if (!joy.active) return;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === joy.id) {
+      resetJoy();
+      break;
+    }
+  }
+});
+
+window.addEventListener('touchcancel', e => {
+  if (!joy.active) return;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === joy.id) {
+      resetJoy();
+      break;
+    }
+  }
+});
+
+let mouseJoy = false;
+joyZone.addEventListener('mousedown', e => { mouseJoy = true; updateJoy(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => { if (mouseJoy) updateJoy(e.clientX, e.clientY); });
+window.addEventListener('mouseup', () => { if (mouseJoy) { mouseJoy = false; resetJoy(); } });
+
+let camYaw = 0, camPitch = 0.35, camTouchId = null, lastCamX = 0, lastCamY = 0;
+renderer.domElement.addEventListener('touchstart', e => {
+  for (let t of e.changedTouches) {
+    if (camTouchId === null && t.identifier !== joy.id) {
+      camTouchId = t.identifier;
+      lastCamX = t.clientX;
+      lastCamY = t.clientY;
+    }
+  }
+}, { passive: true });
+
+renderer.domElement.addEventListener('touchmove', e => {
+  for (let t of e.changedTouches) {
+    if (t.identifier === camTouchId) {
+      camYaw -= (t.clientX - lastCamX) * 0.007;
+      camPitch = Math.max(0.1, Math.min(1.1, camPitch + (t.clientY - lastCamY) * 0.005));
+      lastCamX = t.clientX;
+      lastCamY = t.clientY;
+    }
+  }
+}, { passive: true });
+
+renderer.domElement.addEventListener('touchend', e => {
+  for (let t of e.changedTouches) {
+    if (t.identifier === camTouchId) camTouchId = null;
+  }
+});
+
+function doJump() {
+  if (phys.grounded || phys.jumps < 2) {
+    phys.vel.y = state.superJump ? 14.5 : 10.5;
+    phys.grounded = false;
+    phys.jumps++;
+    phys.slamming = false;
+  }
+}
+function doDash() {
+  if (phys.dashTimer <= 0) phys.dashTimer = 0.25;
+}
+function doSlam() {
+  if (!phys.grounded) {
+    phys.slamming = true;
+    phys.vel.y = -22;
+  }
+}
+
+document.getElementById('btnJump').addEventListener('touchstart', e => { e.preventDefault(); doJump(); });
+document.getElementById('btnDash').addEventListener('touchstart', e => { e.preventDefault(); doDash(); });
+document.getElementById('btnSlam').addEventListener('touchstart', e => { e.preventDefault(); doSlam(); });
+document.getElementById('btnHonk').addEventListener('touchstart', e => {
+  e.preventDefault(); playHonk();
+  if (client && client.connected) client.publish(TOPIC, JSON.stringify({ t: 'honk', id: myId, nick: state.nick }));
+});
+
+const keysDown = {};
+window.addEventListener('keydown', e => {
+  if (document.activeElement === document.getElementById('chatInput')) return;
+  keysDown[e.code] = true;
+  if (e.code === 'Space') doJump();
+  if (e.code === 'ShiftLeft') doDash();
+  if (e.code === 'KeyC') doSlam();
+  if (e.code === 'KeyE') playHonk();
+});
+window.addEventListener('keyup', e => { keysDown[e.code] = false; });
+
+document.getElementById('openShop').onclick = () => document.getElementById('shopModal').style.display = 'flex';
+document.getElementById('closeShop').onclick = () => document.getElementById('shopModal').style.display = 'none';
+
+document.querySelectorAll('.buy-btn').forEach(btn => {
+  btn.onclick = () => {
+    const item = btn.dataset.item;
+    const cost = Number(btn.dataset.cost);
+    if (btn.classList.contains('owned')) {
+      if (item === 'cap' || item === 'crown') {
+        state.hat = item;
+        playerMesh.userData.cap.visible = (item === 'cap');
+        playerMesh.userData.crown.visible = (item === 'crown');
+        showToast('Надето!');
+      }
+      return;
+    }
+    if (state.coins < cost) return showToast('Мало монет!');
+    state.coins -= cost;
+    updateHUD();
+    btn.classList.add('owned');
+    btn.textContent = 'Куплено';
+    if (item === 'cap' || item === 'crown') {
+      state.hat = item;
+      playerMesh.userData.cap.visible = (item === 'cap');
+      playerMesh.userData.crown.visible = (item === 'crown');
+    } else if (item === 'jump') state.superJump = true;
+    else if (item === 'speed') state.turbo = true;
+    showToast('Покупка совершена!');
+  };
+});
+
+const chatBox = document.getElementById('chatBox');
+const chatMsgs = document.getElementById('chatMsgs');
+document.getElementById('toggleChat').onclick = () => {
+  chatBox.style.display = (chatBox.style.display === 'flex') ? 'none' : 'flex';
+};
+document.getElementById('closeChat').onclick = () => { chatBox.style.display = 'none'; };
+
+function addChatLine(author, text) {
+  const div = document.createElement('div');
+  div.className = 'msg-item';
+  div.innerHTML = `<b>${author}:</b> ${text.replace(/</g, '&lt;')}`;
+  chatMsgs.appendChild(div);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
+}
+
+const TOPIC = 'super_goose_adventure_global_v2';
+const myId = 'g_' + Math.random().toString(36).slice(2, 9);
+let client = null;
+const peers = {};
+
+function makeNameTag(text) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(16, 12, 224, 40);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, 128, 40);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c) }));
+  sp.scale.set(2.4, 0.6, 1);
+  sp.position.y = 2.5;
+  return sp;
+}
+
+function startOnline() {
+  try {
+    client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    client.on('connect', () => {
+      client.subscribe(TOPIC);
+      addChatLine('Система', 'Вы подключены к серверу!');
+      client.publish(TOPIC, JSON.stringify({ t: 'chat', nick: 'Сервер', msg: state.nick + ' зашел в игру!' }));
+    });
+    client.on('message', (topic, payload) => {
+      try {
+        const d = JSON.parse(payload.toString());
+        if (d.id === myId) return;
+        if (d.t === 'pos') {
+          if (!peers[d.id]) {
+            const m = createGoose(false);
+            m.add(makeNameTag(d.nick || 'Гусь'));
+            scene.add(m);
+            peers[d.id] = { mesh: m, target: new THREE.Vector3(d.x, d.y, d.z), yaw: d.r, last: Date.now() };
+          }
+          const p = peers[d.id];
+          p.target.set(d.x, d.y, d.z);
+          p.yaw = d.r;
+          p.last = Date.now();
+          p.mesh.userData.cap.visible = (d.hat === 'cap');
+          p.mesh.userData.crown.visible = (d.hat === 'crown');
+        } else if (d.t === 'chat') {
+          addChatLine(d.nick, d.msg);
+        } else if (d.t === 'honk') {
+          playHonk();
+          showToast(`🦆 ${d.nick}: ГА-ГА!`);
+        }
+      } catch (e) {}
+    });
+  } catch (e) {}
+}
+
+document.getElementById('chatForm').onsubmit = e => {
+  e.preventDefault();
+  const inp = document.getElementById('chatInput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  addChatLine(state.nick, txt);
+  if (client && client.connected) {
+    client.publish(TOPIC, JSON.stringify({ t: 'chat', id: myId, nick: state.nick, msg: txt }));
+  }
+  inp.value = '';
+};
+
+document.getElementById('playBtn').onclick = () => {
+  const val = document.getElementById('nickInput').value.trim();
+  if (val) state.nick = val;
+  document.getElementById('loginScreen').style.display = 'none';
+  startOnline();
+};
+
+const clock = new THREE.Clock();
+let netTimer = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  const dayCycle = (Math.sin(t * 0.05) + 1) / 2;
+  const skyColor = new THREE.Color().setHSL(0.56, 0.65, 0.12 + dayCycle * 0.55);
+  scene.background.copy(skyColor);
+  scene.fog.color.copy(skyColor);
+  dirLight.intensity = 0.2 + dayCycle * 0.85;
+  hemiLight.intensity = 0.25 + dayCycle * 0.65;
+  starsMat.opacity = Math.max(0, 1 - dayCycle * 2.2);
+  document.getElementById('timeTxt').textContent = dayCycle > 0.6 ? '☀️ День' : (dayCycle > 0.28 ? '🌅 Закат' : '🌙 Ночь');
+
+  animatedEyes.forEach(e => {
+    const lookX = Math.sin(t * 1.6 + e.phase) * 0.018;
+    e.pupil.position.x = lookX;
+    const blink = (Math.sin(t * 2.5 + e.phase) > 0.98) ? 0.1 : 1;
+    e.sclera.scale.y = blink;
+  });
+
+  let ix = joy.dx, iz = joy.dy;
+  if (keysDown['KeyA'] || keysDown['ArrowLeft']) ix -= 1;
+  if (keysDown['KeyD'] || keysDown['ArrowRight']) ix += 1;
+  if (keysDown['KeyW'] || keysDown['ArrowUp']) iz -= 1;
+  if (keysDown['KeyS'] || keysDown['ArrowDown']) iz += 1;
+  const mag = Math.hypot(ix, iz);
+  if (mag > 1) { ix /= mag; iz /= mag; }
+
+  const sinY = Math.sin(camYaw), cosY = Math.cos(camYaw);
+  const moveX = ix * cosY + iz * sinY;
+  const moveZ = -ix * sinY + iz * cosY;
+
+  let spd = state.turbo ? 12.5 : 8.5;
+  if (phys.dashTimer > 0) {
+    phys.dashTimer -= dt;
+    spd = 21;
+  }
+
+  if (mag > 0.05 || phys.dashTimer > 0) {
+    const dirX = mag > 0.05 ? moveX : Math.sin(phys.yaw);
+    const dirZ = mag > 0.05 ? moveZ : Math.cos(phys.yaw);
+    phys.vel.x = dirX * spd;
+    phys.vel.z = dirZ * spd;
+    phys.yaw = Math.atan2(dirX, dirZ);
+  } else {
+    phys.vel.x *= 0.8;
+    phys.vel.z *= 0.8;
+  }
+
+  phys.vel.y -= 26 * dt;
+
+  phys.pos.x += phys.vel.x * dt;
+  phys.pos.z += phys.vel.z * dt;
+  phys.pos.y += phys.vel.y * dt;
+
+  phys.grounded = false;
+  if (phys.pos.y <= 0) {
+    phys.pos.y = 0;
+    phys.vel.y = 0;
+    phys.grounded = true;
+    phys.jumps = 0;
+    phys.slamming = false;
+  }
+
+  const r = 0.55;
+  for (const b of colliders) {
+    if (phys.pos.x + r > b.minX && phys.pos.x - r < b.maxX &&
+        phys.pos.z + r > b.minZ && phys.pos.z - r < b.maxZ) {
+      if (phys.pos.y >= b.maxY - 0.5 && phys.pos.y <= b.maxY + 0.4 && phys.vel.y <= 0) {
+        phys.pos.y = b.maxY;
+        phys.vel.y = 0;
+        phys.grounded = true;
+        phys.jumps = 0;
+        phys.slamming = false;
+      } else if (phys.pos.y < b.maxY - 0.3 && phys.pos.y + 1.5 > b.minY) {
+        const penL = (phys.pos.x + r) - b.minX;
+        const penR = b.maxX - (phys.pos.x - r);
+        const penF = (phys.pos.z + r) - b.minZ;
+        const penB = b.maxZ - (phys.pos.z - r);
+        const minP = Math.min(penL, penR, penF, penB);
+        if (minP === penL) phys.pos.x = b.minX - r;
+        else if (minP === penR) phys.pos.x = b.maxX + r;
+        else if (minP === penF) phys.pos.z = b.minZ - r;
+        else phys.pos.z = b.maxZ + r;
+      }
+    }
+  }
+
+  phys.pos.x = Math.max(-76, Math.min(76, phys.pos.x));
+  phys.pos.z = Math.max(-76, Math.min(76, phys.pos.z));
+
+  playerMesh.position.copy(phys.pos);
+  playerMesh.rotation.y = phys.yaw;
+  const walkAnim = Math.hypot(phys.vel.x, phys.vel.z) * 0.8;
+  playerMesh.userData.footL.position.z = 0.1 + Math.sin(t * 12) * 0.12 * Math.min(1, walkAnim);
+  playerMesh.userData.footR.position.z = 0.1 - Math.sin(t * 12) * 0.12 * Math.min(1, walkAnim);
+  playerMesh.userData.wingL.rotation.z = phys.grounded ? 0 : Math.sin(t * 22) * 0.5 + 0.4;
+  playerMesh.userData.wingR.rotation.z = phys.grounded ? 0 : -Math.sin(t * 22) * 0.5 - 0.4;
+
+  for (let i = coins.length - 1; i >= 0; i--) {
+    coins[i].rotation.z += 3 * dt;
+    if (coins[i].position.distanceTo(phys.pos) < 1.5) {
+      scene.remove(coins[i]);
+      coins.splice(i, 1);
+      state.coins++;
+      updateHUD();
+    }
+  }
+
+  for (let i = keyItems.length - 1; i >= 0; i--) {
+    keyItems[i].rotation.y += 2.5 * dt;
+    if (keyItems[i].position.distanceTo(phys.pos) < 1.6) {
+      scene.remove(keyItems[i]);
+      keyItems.splice(i, 1);
+      state.keys++;
+      updateHUD();
+      showToast('🔑 Подобран золотой ключ!');
+    }
+  }
+
+  for (const c of cages) {
+    if (c.open) {
+      c.baby.position.y = Math.abs(Math.sin(t * 6)) * 0.5;
+      c.baby.rotation.y += 2 * dt;
+    } else if (c.grp.position.distanceTo(phys.pos) < 2.4 && state.keys > 0) {
+      c.open = true;
+      c.bars.visible = false;
+      state.keys--;
+      state.rescued++;
+      updateHUD();
+      showToast('🐣 Гусенок спасен!');
+    }
+  }
+
+  if (state.invuln > 0) state.invuln -= dt;
+  const nearBoss = boss.alive && phys.pos.distanceTo(boss.mesh.position) < 22;
+  document.getElementById('bossBar').style.display = nearBoss ? 'block' : 'none';
+
+  for (const en of enemies) {
+    if (!en.alive) continue;
+    en.wL.rotation.z = Math.sin(t * 30) * 0.5;
+    en.wR.rotation.z = -Math.sin(t * 30) * 0.5;
+
+    const dist = en.mesh.position.distanceTo(phys.pos);
+    const aggroR = en.isBoss ? 18 : 11;
+    if (dist < aggroR) {
+      const dir = new THREE.Vector3().subVectors(phys.pos, en.mesh.position);
+      dir.y = 0; dir.normalize();
+      en.mesh.position.addScaledVector(dir, (en.isBoss ? 5.2 : 4.2) * dt);
+      en.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+    }
+
+    const hitDist = en.isBoss ? 2.4 : 1.4;
+    if (dist < hitDist) {
+      const attacking = phys.slamming || phys.dashTimer > 0 || (phys.vel.y < -1 && phys.pos.y > en.mesh.position.y);
+      if (attacking) {
+        en.hp--;
+        phys.vel.y = 9;
+        phys.slamming = false;
+        if (en.isBoss) {
+          document.getElementById('bossFill').style.width = (en.hp / en.maxHp * 100) + '%';
+          showToast('💥 Удар по Боссу!');
+        }
+        if (en.hp <= 0) {
+          en.alive = false;
+          en.mesh.visible = false;
+          for (let k = 0; k < (en.isBoss ? 10 : 2); k++) {
+            spawnCoin(en.mesh.position.x + (Math.random() - 0.5) * 3, 1, en.mesh.position.z + (Math.random() - 0.5) * 3);
+          }
+          if (en.isBoss) showToast('🏆 КОРОЛЬ ПЧЕЛ ПОБЕЖДЕН!');
+        }
+      } else if (state.invuln <= 0) {
+        state.hp--;
+        state.invuln = 1.5;
+        updateHUD();
+        showToast('💔 Осторожно, враг!');
+        if (state.hp <= 0) {
+          state.hp = 3;
+          phys.pos.set(0, 1, 10);
+          updateHUD();
+          showToast('🔄 Возрождение на старте');
+        }
+      }
+    }
+  }
+
+  netTimer += dt;
+  if (netTimer > 0.12 && client && client.connected) {
+    netTimer = 0;
+    client.publish(TOPIC, JSON.stringify({
+      t: 'pos', id: myId, nick: state.nick, hat: state.hat,
+      x: +phys.pos.x.toFixed(2), y: +phys.pos.y.toFixed(2), z: +phys.pos.z.toFixed(2), r: +phys.yaw.toFixed(2)
+    }));
+  }
+
+  let onlineCount = 1;
+  for (const id in peers) {
+    if (Date.now() - peers[id].last > 10000) {
+      scene.remove(peers[id].mesh);
+      delete peers[id];
+    } else {
+      onlineCount++;
+      peers[id].mesh.position.lerp(peers[id].target, 0.25);
+      peers[id].mesh.rotation.y = peers[id].yaw;
+    }
+  }
+  document.getElementById('onlineTxt').textContent = '🌐 ' + onlineCount;
+
+  const camDist = 11;
+  camera.position.set(
+    phys.pos.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
+    phys.pos.y + 2 + Math.sin(camPitch) * camDist,
+    phys.pos.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist
+  );
+  camera.lookAt(phys.pos.x, phys.pos.y + 1.4, phys.pos.z);
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+updateHUD();
+animate();
+</script>
+</body>
+</html>
